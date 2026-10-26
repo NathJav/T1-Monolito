@@ -1,0 +1,173 @@
+# Ambiente completo: i-Educar + Moodle + aplicação de integração.
+#
+#   http://localhost:8000  i-Educar   (admin / 123456789)
+#   http://localhost:8080  Moodle     (admin / Moodle@2026)
+#   http://localhost:8090  Integração (painel, API e Swagger em /docs)
+#
+# Os tokens de acesso são gerados automaticamente no primeiro boot e trocados
+# pelo volume "tokens" (somente leitura para a integração).
+
+name: t1-monolito
+
+x-ieducar-env: &ieducar-env
+  APP_ENV: local
+  APP_DEBUG: "false"
+  APP_URL: http://localhost:${IEDUCAR_PORT:-8000}
+  DB_CONNECTION: pgsql
+  DB_HOST: ieducar-db
+  DB_PORT: "5432"
+  DB_DATABASE: ieducar
+  DB_USERNAME: ieducar
+  DB_PASSWORD: ${IEDUCAR_DB_PASSWORD:-ieducar}
+  CACHE_STORE: redis
+  REDIS_HOST: ieducar-redis
+  REDIS_PORT: "6379"
+  QUEUE_CONNECTION: sync
+  SESSION_DRIVER: file
+  IEDUCAR_DEMO_DATA: ${IEDUCAR_DEMO_DATA:-true}
+
+services:
+  # ------------------------------------------------------------------ i-Educar
+  ieducar-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ieducar
+      POSTGRES_USER: ieducar
+      POSTGRES_PASSWORD: ${IEDUCAR_DB_PASSWORD:-ieducar}
+    volumes:
+      - ieducar_db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ieducar -d ieducar"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  ieducar-redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+
+  ieducar:
+    build:
+      context: ./docker/ieducar
+      target: php
+      args:
+        IEDUCAR_REF: ${IEDUCAR_REF:-7903a3efc7689942ee700007f86ed581023aad27}
+    image: t1-monolito/ieducar-php
+    environment: *ieducar-env
+    volumes:
+      - ieducar_state:/state
+      - tokens:/shared
+    depends_on:
+      ieducar-db:
+        condition: service_healthy
+      ieducar-redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /state/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15m
+    restart: unless-stopped
+
+  ieducar-web:
+    build:
+      context: ./docker/ieducar
+      target: web
+      args:
+        IEDUCAR_REF: ${IEDUCAR_REF:-7903a3efc7689942ee700007f86ed581023aad27}
+    image: t1-monolito/ieducar-web
+    ports:
+      - "${IEDUCAR_PORT:-8000}:80"
+    depends_on:
+      ieducar:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------- Moodle
+  moodle-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: moodle
+      POSTGRES_USER: moodle
+      POSTGRES_PASSWORD: ${MOODLE_DB_PASSWORD:-moodle}
+    volumes:
+      - moodle_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moodle -d moodle"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  moodle:
+    build:
+      context: ./docker/moodle
+    image: t1-monolito/moodle
+    environment:
+      MOODLE_DATABASE_TYPE: pgsql
+      MOODLE_DATABASE_HOST: moodle-db
+      MOODLE_DATABASE_PORT_NUMBER: "5432"
+      MOODLE_DATABASE_NAME: moodle
+      MOODLE_DATABASE_USER: moodle
+      MOODLE_DATABASE_PASSWORD: ${MOODLE_DB_PASSWORD:-moodle}
+      MOODLE_USERNAME: admin
+      MOODLE_PASSWORD: ${MOODLE_ADMIN_PASSWORD:-Moodle@2026}
+      MOODLE_EMAIL: admin@example.com
+      MOODLE_SITE_NAME: Moodle - Integração i-Educar
+      MOODLE_WS_TOKEN_FILE: /shared/moodle_token
+    ports:
+      - "${MOODLE_PORT:-8080}:8080"
+    volumes:
+      - moodle_code:/bitnami/moodle
+      - moodle_data:/bitnami/moodledata
+      - tokens:/shared
+    depends_on:
+      moodle-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /shared/moodle_token"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 20m
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------- Integração
+  integracao:
+    build:
+      context: ./integracao
+    image: t1-monolito/integracao
+    environment:
+      IEDUCAR_URL: http://ieducar-web
+      IEDUCAR_TOKEN_FILE: /shared/ieducar_token
+      MOODLE_URL: http://moodle:8080
+      MOODLE_TOKEN_FILE: /shared/moodle_token
+      MOODLE_URL_PUBLICA: http://localhost:${MOODLE_PORT:-8080}
+      IEDUCAR_URL_PUBLICA: http://localhost:${IEDUCAR_PORT:-8000}
+      SYNC_ANO_LETIVO: ${SYNC_ANO_LETIVO:-}
+      SYNC_INTERVALO_MINUTOS: ${SYNC_INTERVALO_MINUTOS:-5}
+      SYNC_RECONCILIACAO_A_CADA: ${SYNC_RECONCILIACAO_A_CADA:-12}
+      DATABASE_PATH: /data/integracao.db
+      TZ: America/Sao_Paulo
+    ports:
+      - "${INTEGRACAO_PORT:-8090}:8000"
+    volumes:
+      - integracao_data:/data
+      - tokens:/shared:ro
+    depends_on:
+      ieducar-web:
+        condition: service_started
+      moodle:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  ieducar_db:
+  ieducar_state:
+  moodle_db:
+  moodle_code:
+  moodle_data:
+  integracao_data:
+  tokens:

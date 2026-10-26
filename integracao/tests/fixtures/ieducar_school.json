@@ -1,0 +1,28 @@
+{
+ "data": [
+  {
+   "id": 3,
+   "person_id": 545,
+   "ativo": 1,
+   "person": {
+    "name": "Escola de Educação Infantil",
+    "id": 545
+   }
+  },
+  {
+   "id": 2,
+   "person_id": 4,
+   "ativo": 1,
+   "person": {
+    "name": "Escola de Ensino Fundamental",
+    "id": 4
+   }
+  }
+ ],
+ "meta": {
+  "current_page": 1,
+  "last_page": 1,
+  "per_page": 100,
+  "total": 2
+ }
+}

@@ -1,0 +1,64 @@
+{
+ "data": [
+  {
+   "ativo": 1,
+   "ano": 2026,
+   "aprovado": 3,
+   "ref_ref_cod_escola": 2,
+   "student_id": 72,
+   "nome": "Agatha",
+   "email": "zaragoca.nathalia@soto.br",
+   "id": 72,
+   "enrollments": [
+    {
+     "ref_cod_turma": 9,
+     "sequencial": 1,
+     "ativo": 1,
+     "ref_cod_matricula": 72
+    }
+   ]
+  },
+  {
+   "ativo": 1,
+   "ano": 2026,
+   "aprovado": 3,
+   "ref_ref_cod_escola": 2,
+   "student_id": 10,
+   "nome": "Agatha Cristina Moraes",
+   "email": "cesar01@yahoo.com",
+   "id": 10,
+   "enrollments": [
+    {
+     "ref_cod_turma": 3,
+     "sequencial": 1,
+     "ativo": 1,
+     "ref_cod_matricula": 10
+    }
+   ]
+  },
+  {
+   "ativo": 1,
+   "ano": 2026,
+   "aprovado": 3,
+   "ref_ref_cod_escola": 2,
+   "student_id": 92,
+   "nome": "Agustina",
+   "email": "giovana14@yahoo.com",
+   "id": 92,
+   "enrollments": [
+    {
+     "ref_cod_turma": 11,
+     "sequencial": 1,
+     "ativo": 1,
+     "ref_cod_matricula": 92
+    }
+   ]
+  }
+ ],
+ "meta": {
+  "current_page": 1,
+  "last_page": 70,
+  "per_page": 3,
+  "total": 210
+ }
+}

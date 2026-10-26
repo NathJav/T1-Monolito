@@ -1,0 +1,46 @@
+{
+ "data": [
+  {
+   "cod_turma": 3,
+   "ref_ref_cod_serie": 6,
+   "ref_ref_cod_escola": 2,
+   "nm_turma": "1º ano (1º ano) Matutino",
+   "ativo": 1,
+   "ref_cod_curso": 3,
+   "visivel": true,
+   "ano": 2026,
+   "grade": {
+    "name": "1º ano",
+    "id": 6
+   },
+   "course": {
+    "name": "Ensino Fundamental",
+    "id": 3
+   }
+  },
+  {
+   "cod_turma": 4,
+   "ref_ref_cod_serie": 7,
+   "ref_ref_cod_escola": 2,
+   "nm_turma": "2º ano (2º ano) Matutino",
+   "ativo": 1,
+   "ref_cod_curso": 3,
+   "visivel": true,
+   "ano": 2026,
+   "grade": {
+    "name": "2º ano",
+    "id": 7
+   },
+   "course": {
+    "name": "Ensino Fundamental",
+    "id": 3
+   }
+  }
+ ],
+ "meta": {
+  "current_page": 1,
+  "last_page": 11,
+  "per_page": 2,
+  "total": 21
+ }
+}

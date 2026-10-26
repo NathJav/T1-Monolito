@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Integração i-Educar → Moodle</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #5d6677; --line: #e3e6ec;
+      --accent: #1f6feb; --ok: #1a7f37; --warn: #9a6700; --err: #cf222e;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+    header { background: #12233d; color: #fff; padding: 20px 24px; }
+    header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+    header p { margin: 4px 0 0; color: #b9c4d6; font-size: 14px; }
+    main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 16px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+    .card h2 { margin: 0 0 12px; font-size: 16px; }
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    .stat { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+    .stat b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+    .stat span { color: var(--muted); font-size: 13px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    button { font: inherit; border: 0; border-radius: 8px; padding: 9px 16px; cursor: pointer; background: var(--accent); color: #fff; font-weight: 600; }
+    button.secondary { background: #e8edf5; color: var(--text); }
+    button:disabled { opacity: .6; cursor: wait; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; }
+    td.num { font-variant-numeric: tabular-nums; }
+    .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .sucesso { background: #dafbe1; color: var(--ok); }
+    .parcial { background: #fff8c5; color: var(--warn); }
+    .falha { background: #ffebe9; color: var(--err); }
+    .em_andamento { background: #ddf4ff; color: var(--accent); }
+    .muted { color: var(--muted); }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 8px; overflow: auto; max-height: 360px; font-size: 12.5px; }
+    a { color: var(--accent); }
+    .table-wrap { overflow-x: auto; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Integração i-Educar → Moodle</h1>
+  <p>Escolas → categorias · Turmas → cursos · Alunos → usuários · Matrículas → inscrições · Ano letivo {{ settings.ano_letivo }}</p>
+</header>
+<main>
+  <section class="card">
+    <h2>Ações</h2>
+    <div class="row">
+      <button id="btn-sync">Sincronizar agora</button>
+      <button id="btn-saude" class="secondary">Verificar conexões</button>
+      <a href="/docs">API (Swagger)</a>
+      <a href="/ieducar/dados" target="_blank">Dados de origem (JSON)</a>
+      <a href="{{ settings.ieducar_url_publica }}/intranet/educar_turma_lst.php" target="_blank">Turmas no i-Educar</a>
+      <a href="{{ settings.moodle_url_publica }}/course/management.php" target="_blank">Cursos no Moodle</a>
+    </div>
+    <p class="muted" style="margin:10px 0 0">
+      Token i-Educar: <b>{{ "configurado" if token_ieducar else "ausente" }}</b> ·
+      Token Moodle: <b>{{ "configurado" if token_moodle else "ausente" }}</b> ·
+      Agendamento: <b>{{ ("a cada %d min" % settings.intervalo_sync_minutos) if agendador else "desligado" }}</b>
+    </p>
+    <pre id="saida" hidden></pre>
+  </section>
+
+  <section class="card">
+    <h2>Registros vinculados</h2>
+    <div class="grid">
+      <div class="stat"><b>{{ vinculos.get("escola", 0) }}</b><span>escolas → categorias</span></div>
+      <div class="stat"><b>{{ vinculos.get("turma", 0) }}</b><span>turmas → cursos</span></div>
+      <div class="stat"><b>{{ vinculos.get("aluno", 0) }}</b><span>alunos → usuários</span></div>
+      <div class="stat"><b>{{ vinculos.get("matricula", 0) }}</b><span>matrículas → inscrições</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Últimas sincronizações</h2>
+    {% if execucoes %}
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Início (UTC)</th><th>Status</th><th>Gatilho</th><th>Criados</th><th>Atualizados</th><th>Inalterados</th><th>Suspensos</th><th>Erros</th></tr></thead>
+      <tbody>
+      {% for e in execucoes %}
+        {% set r = e.resumo or {} %}
+        {% set ent = r.get("entidades", {}) %}
+        <tr>
+          <td><a href="/sincronizacoes/{{ e.id }}" target="_blank">{{ e.id }}</a></td>
+          <td>{{ e.inicio }}</td>
+          <td><span class="pill {{ e.status }}">{{ e.status }}</span></td>
+          <td>{{ e.gatilho }}</td>
+          <td class="num">{{ ent.values() | sum(attribute="criados") }}</td>
+          <td class="num">{{ ent.values() | sum(attribute="atualizados") }}</td>
+          <td class="num">{{ ent.values() | sum(attribute="inalterados") }}</td>
+          <td class="num">{{ ent.values() | sum(attribute="suspensos") }}</td>
+          <td class="num">{{ r.get("total_erros", 0) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="muted">Nenhuma sincronização executada ainda.</p>
+    {% endif %}
+  </section>
+</main>
+<script>
+  const saida = document.getElementById('saida');
+  function mostrar(obj) { saida.hidden = false; saida.textContent = JSON.stringify(obj, null, 2); }
+  async function chamar(botao, metodo, url) {
+    botao.disabled = true;
+    try {
+      const r = await fetch(url, { method: metodo });
+      const corpo = await r.json();
+      mostrar(corpo);
+      return r.ok;
+    } catch (e) { mostrar({ erro: String(e) }); return false; }
+    finally { botao.disabled = false; }
+  }
+  document.getElementById('btn-saude').onclick = (e) => chamar(e.target, 'GET', '/saude');
+  document.getElementById('btn-sync').onclick = async (e) => {
+    e.target.textContent = 'Sincronizando…';
+    const ok = await chamar(e.target, 'POST', '/sincronizacoes');
+    e.target.textContent = 'Sincronizar agora';
+    if (ok) setTimeout(() => location.reload(), 1500);
+  };
+</script>
+</body>
+</html>
